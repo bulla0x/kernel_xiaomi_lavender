@@ -12,22 +12,26 @@ config KSU
 config KSU_KPROBES_KSUD
 	bool "Enable dynamic kprobes for early boot hooks"
 	depends on KSU
+	depends on !KSU_TAMPER_SYSCALL_TABLE
+	depends on !KSU_HACK_ARM64_BRANCH_LINK
 	depends on KPROBES && KRETPROBES
-	default y
+	depends on DEPRECATED
+	default n
 	help
-	  Use dynamic hooks via kprobes for functions only
+	  [deprecated] Use dynamic hooks via kprobes for functions only
 	  on early boot. Hooks are unregistered at boot complete
 	  to reduce overhead.
 
 config KSU_HACK_ARM64_BRANCH_LINK
-	bool "EXPERIMENTAL: inline call-site hijacking (ARM64 bl insn)"
+	bool "inline call-site hijacking (ARM64 bl insn)"
 	depends on KSU
+	depends on ARM64 && KALLSYMS
 	depends on !KSU_TAMPER_SYSCALL_TABLE
 	default y
 	help
-	  EXPERIMENTAL: Attempts to provide sucompat by scanning kernel text and
-	  overwriting caller's branch insn ('b' or 'bl') directly to our hooks,
-	  bypassing trampoline overhead and CFI fuckups. Inspired by ARM64 optprobes.
+	  Attempts to provide sucompat by scanning kernel text and overwriting caller's
+	  branch insn ('b' or 'bl') directly to our hooks, bypassing trampoline overhead
+	  and CFI fuckups. Inspired by ARM64 optprobes.
 	  Successful patching relies on symbol stability, so hooking success will
 	  vary across different compliers, optimization, tweaks and backports.
 	  When patching fails, it keeps syscall table hook for the target symbol.
@@ -67,6 +71,18 @@ config KSU_FEATURE_ADBROOT
 	default y
 	help
 	  Build KernelSU's adb root feature.
+
+config KSU_HOSTSREDIRECT
+	bool "/system/etc/hosts redirection"
+	depends on KSU
+	depends on (ARM || ARM64)
+	default n
+	help
+	  Kernel-level sys_openat fd redirect targeting /system/etc/hosts to /data/adb/hosts.
+	  Allows hosts file modification without mounting hosts file directly, this is meant to
+	  be used with bindhosts mode 3. If /data/adb/hosts does NOT exist at boot, the syscall
+	  hook is automatically skipped. See like ZN-hostsredirect / APatch hosts file redirect.
+	  If unsure, say n.
 
 config KSU_ENABLE_FULL_UID_CHECKS
 	bool "perform full uid checks (reduced performance)"

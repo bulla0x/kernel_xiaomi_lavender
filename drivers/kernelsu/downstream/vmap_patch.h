@@ -33,17 +33,11 @@ __weak void kick_all_cpus_sync(void)
  *
  * then we can just kick all the cpus, so they see the change and refetch.
  */
-static noinline void patch_ptr_slot_kick_cpu(void **target_slot, void *new_ptr)
+static inline void patch_ptr_slot_kick_cpu(void **target_slot, void *new_ptr)
 {
-	preempt_disable();
-	local_irq_disable();	
-
+	// __atomic_store_n((uintptr_t *)target_slot, (uintptr_t)new_ptr, __ATOMIC_RELAXED);
 	WRITE_ONCE(*target_slot, new_ptr);
 
-	local_irq_enable();
-	preempt_enable();
-
-	barrier();
 	kick_all_cpus_sync();
 }
 
@@ -85,6 +79,14 @@ static noinline void read_and_replace_syscall(void *old_ptr, unsigned long sysca
 
 	if (!*syscall_slot_addr)
 		return;
+
+	// check that the pointer points inside kernel text
+	extern char _stext[], _etext[];
+	uintptr_t sc_slot = (uintptr_t)*syscall_slot_addr;
+	if (!(sc_slot > (uintptr_t)_stext && sc_slot < (uintptr_t)_etext)) {
+		pr_info("%s: syscall #%d at 0x%lx NOT pointing to kernel text!\n", __func__, syscall_nr, (long)syscall_slot_addr);
+		return;
+	}
 
 	pr_info("%s: hooking syscall #%d at 0x%lx\n", __func__, syscall_nr, (long)syscall_slot_addr);
 
