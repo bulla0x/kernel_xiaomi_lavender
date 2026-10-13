@@ -2427,6 +2427,8 @@ static int prctl_set_vma(unsigned long opt, unsigned long start,
 {
 	return -EINVAL;
 }
+#endif
+
 #ifdef CONFIG_KSU_SUSFS
 extern int susfs_handle_prctl(int option, unsigned long arg2, unsigned long arg3, unsigned long arg4, unsigned long arg5);
 #endif

@@ -152,9 +152,12 @@ void susfs_sus_ino_for_show_map_vma(unsigned long ino, dev_t *out_dev, unsigned 
 #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info);
 void susfs_try_umount(uid_t target_uid);
+void susfs_try_umount_all(uid_t uid);
 #ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
 void susfs_auto_add_try_umount_for_bind_mount(struct path *path);
 #endif // #ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
+#else
+static inline void susfs_try_umount_all(uid_t uid) {}
 #endif // #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 /* spoof_uname */
 #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
