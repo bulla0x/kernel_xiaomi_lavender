@@ -227,3 +227,87 @@ void escape_to_root_for_adb_root(void)
 	}
 	commit_creds(cred);
 }
+
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+u32 susfs_ksu_sid = 0;
+u32 susfs_init_sid = 0;
+u32 susfs_zygote_sid = 0;
+
+bool susfs_is_sid_equal(void *sec, u32 sid2)
+{
+	struct task_security_struct *tsec = (struct task_security_struct *)sec;
+	if (!tsec)
+		return false;
+	return tsec->sid == sid2;
+}
+
+u32 susfs_get_sid_from_name(const char *secctx_name)
+{
+	u32 out_sid = 0;
+	int err;
+
+	if (!secctx_name) {
+		pr_err("secctx_name is NULL\n");
+		return 0;
+	}
+	err = security_secctx_to_secid(secctx_name, strlen(secctx_name), &out_sid);
+	if (err) {
+		pr_err("failed getting sid from secctx_name: %s, err: %d\n", secctx_name, err);
+		return 0;
+	}
+	return out_sid;
+}
+
+u32 susfs_get_current_sid(void)
+{
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 18, 0)
+	const struct task_security_struct *tsec = selinux_cred(current_cred());
+	return tsec ? tsec->sid : 0;
+#else
+	const struct cred_security_struct *tsec = selinux_cred(current_cred());
+	return tsec ? tsec->sid : 0;
+#endif
+}
+
+void susfs_set_zygote_sid(void)
+{
+	int err = security_secctx_to_secid(ZYGOTE_CONTEXT, strlen(ZYGOTE_CONTEXT), &susfs_zygote_sid);
+	if (err)
+		pr_err("failed setting sid for '%s', err: %d\n", ZYGOTE_CONTEXT, err);
+	else
+		pr_info("sid '%u' is set for secctx_name '%s'\n", susfs_zygote_sid, ZYGOTE_CONTEXT);
+}
+
+bool susfs_is_current_zygote_domain(void)
+{
+	return unlikely(susfs_get_current_sid() == susfs_zygote_sid);
+}
+
+void susfs_set_ksu_sid(void)
+{
+	int err = security_secctx_to_secid(KERNEL_SU_CONTEXT, strlen(KERNEL_SU_CONTEXT), &susfs_ksu_sid);
+	if (err)
+		pr_err("failed setting sid for '%s', err: %d\n", KERNEL_SU_CONTEXT, err);
+	else
+		pr_info("sid '%u' is set for secctx_name '%s'\n", susfs_ksu_sid, KERNEL_SU_CONTEXT);
+}
+
+bool susfs_is_current_ksu_domain(void)
+{
+	return unlikely(susfs_get_current_sid() == susfs_ksu_sid);
+}
+
+void susfs_set_init_sid(void)
+{
+	int err = security_secctx_to_secid(INIT_CONTEXT, strlen(INIT_CONTEXT), &susfs_init_sid);
+	if (err)
+		pr_err("failed setting sid for '%s', err: %d\n", INIT_CONTEXT, err);
+	else
+		pr_info("sid '%u' is set for secctx_name '%s'\n", susfs_init_sid, INIT_CONTEXT);
+}
+
+bool susfs_is_current_init_domain(void)
+{
+	return unlikely(susfs_get_current_sid() == susfs_init_sid);
+}
+#endif

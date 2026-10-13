@@ -145,6 +145,11 @@ static int apply_kernelsu_rules_fn(void *ptr)
 	ksu_allow(db, "domain", KERNEL_SU_DOMAIN, "unix_stream_socket", "getopt");
 	ksu_allow(db, "domain", KERNEL_SU_DOMAIN, "unix_stream_socket", "getattr");
 
+#ifdef CONFIG_KSU_SUSFS
+	// Allow umount in zygote process without installing zygisk
+	ksu_allow(db, "zygote", "labeledfs", "filesystem", "unmount");
+#endif
+
 	return 0;
 }
 
@@ -209,6 +214,12 @@ do_stop_machine:
 out_flush:
 	smp_mb();
 	reset_avc_cache();
+#endif
+
+#ifdef CONFIG_KSU_SUSFS
+	susfs_set_init_sid();
+	susfs_set_ksu_sid();
+	susfs_set_zygote_sid();
 #endif
 }
 

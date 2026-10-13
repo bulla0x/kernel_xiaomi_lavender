@@ -20,6 +20,10 @@
 
 #include "kernel_includes.h"
 
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
+#endif
+
 // selinux includes
 #include "avc_ss.h"
 #include "objsec.h"
@@ -62,6 +66,7 @@
 #include "feature/selinux_hide.h"
 #include "feature/sucompat.h"
 #include "feature/sulog.h"
+#include "feature/susfs_handler.h"
 #include "runtime/ksud.h"
 #include "sulog/event.h"
 #include "sulog/fd.h"
@@ -112,6 +117,9 @@
 #include "feature/selinux_hide.c"
 #include "feature/sucompat.c"
 #include "feature/sulog.c"
+#ifdef CONFIG_KSU_SUSFS
+#include "feature/susfs_handler.c"
+#endif
 #include "runtime/ksud.c"
 
 #include "sulog/event.c"
@@ -197,8 +205,13 @@
 #else
 	#define FEAT_8 ""
 #endif
+#if defined(CONFIG_KSU_SUSFS)
+	#define FEAT_SUSFS " +susfs"
+#else
+	#define FEAT_SUSFS ""
+#endif
 
-#define EXTRA_FEATURES FEAT_1 FEAT_2 FEAT_3 FEAT_4 FEAT_5 FEAT_6 FEAT_7 FEAT_8
+#define EXTRA_FEATURES FEAT_1 FEAT_2 FEAT_3 FEAT_4 FEAT_5 FEAT_6 FEAT_7 FEAT_8 FEAT_SUSFS
 
 static inline void ksu_print_build_info(void)
 {
@@ -230,6 +243,10 @@ static int __init kernelsu_init(void)
 #endif
 	if (allow_shell)
 		pr_alert("shell is allowed at init!");
+
+#ifdef CONFIG_KSU_SUSFS
+	susfs_init();
+#endif
 
 	ksu_cred = prepare_creds();
 	if (!ksu_cred) {

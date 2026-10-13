@@ -54,6 +54,9 @@ void on_post_fs_data(void)
 	ksu_load_allow_list();
 	// sanity check, this may influence the performance
 	stop_input_hook();
+#ifdef CONFIG_KSU_SUSFS
+	susfs_on_post_fs_data();
+#endif
 }
 
 extern void ext4_unregister_sysfs(struct super_block *sb);
