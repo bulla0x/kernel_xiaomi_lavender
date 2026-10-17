@@ -57,6 +57,9 @@ void on_post_fs_data(void)
 #ifdef CONFIG_KSU_SUSFS
 	susfs_on_post_fs_data();
 #endif
+
+	// retry forced features which failed at second stage
+	ksu_feature_apply_forced();
 }
 
 extern void ext4_unregister_sysfs(struct super_block *sb);
@@ -105,7 +108,8 @@ static struct file_operations fops_proxy;
 static ssize_t ksu_rc_pos = 0;
 const size_t ksu_rc_len = sizeof(KERNEL_SU_RC) - 1;
 
-// Prefer /metadata/watchdog/ when present, else /metadata.
+// Prefer /metadata/vold, else /metadata/watchdog, else /metadata.
+#define MODULE_RC_PATH_VOLD "/metadata/vold/ksu/modules.rc"
 #define MODULE_RC_PATH_WATCHDOG "/metadata/watchdog/ksu/modules.rc"
 #define MODULE_RC_PATH_DEFAULT "/metadata/ksu/modules.rc"
 #define MODULE_RC_MAX (1u << 20) /* 1 MiB cap */
@@ -115,7 +119,12 @@ static ssize_t module_rc_pos;
 
 static struct file *open_module_rc(const char **chosen_path)
 {
-	struct file *f = filp_open(MODULE_RC_PATH_WATCHDOG, O_RDONLY, 0);
+	struct file *f = filp_open(MODULE_RC_PATH_VOLD, O_RDONLY, 0);
+	if (!IS_ERR(f)) {
+		*chosen_path = MODULE_RC_PATH_VOLD;
+		return f;
+	}
+	f = filp_open(MODULE_RC_PATH_WATCHDOG, O_RDONLY, 0);
 	if (!IS_ERR(f)) {
 		*chosen_path = MODULE_RC_PATH_WATCHDOG;
 		return f;
@@ -204,7 +213,9 @@ static noinline void set_module_rc_len_vfs()
 
 	struct path path;
 
-	int err = kern_path(MODULE_RC_PATH_WATCHDOG, LOOKUP_FOLLOW, &path);
+	int err = kern_path(MODULE_RC_PATH_VOLD, LOOKUP_FOLLOW, &path);
+	if (err)
+		err = kern_path(MODULE_RC_PATH_WATCHDOG, LOOKUP_FOLLOW, &path);
 	if (err)
 		err = kern_path(MODULE_RC_PATH_DEFAULT, LOOKUP_FOLLOW, &path);
 	if (err)
@@ -394,6 +405,7 @@ static noinline void ksu_install_rc_hook(struct file *file)
 	cache_sid();
 	setup_ksu_cred();
 	ksu_grab_init_session_keyring();
+	ksu_feature_apply_forced();
 
 	// now we can sure that the init process is reading
 	// `/system/etc/init/init.rc`
