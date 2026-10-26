@@ -5,6 +5,9 @@
 #include <linux/workqueue.h>
 
 #include "feature/selinux_hide.h"
+#ifdef CONFIG_KSU_SUSFS
+#include "feature/susfs_handler.h"
+#endif
 
 #include "policy/allowlist.h"
 #include "klog.h" // IWYU pragma: keep
@@ -72,6 +75,9 @@ void on_post_fs_data(void)
 	// sanity check, this may influence the performance
 	ksu_stop_input_hook_runtime();
 	ksu_selinux_hide_handle_post_fs_data();
+#ifdef CONFIG_KSU_SUSFS
+	susfs_on_post_fs_data();
+#endif
 }
 
 extern void ext4_unregister_sysfs(struct super_block *sb);

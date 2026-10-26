@@ -13,6 +13,9 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/uidgid.h>
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs_def.h>
+#endif
 
 #include "policy/app_profile.h"
 #include "policy/allowlist.h"
@@ -64,6 +67,11 @@ int ksu_handle_setresuid(uid_t old_uid, uid_t new_uid)
 		ksu_set_task_tracepoint_flag(current);
 #endif
 	} else {
+#ifdef CONFIG_KSU_SUSFS
+		task_lock(current);
+		current->susfs_task_state |= TASK_STRUCT_NON_ROOT_USER_APP_PROC;
+		task_unlock(current);
+#endif
 #ifdef KSU_KPROBES_HOOK
 		ksu_clear_task_tracepoint_flag_if_needed(current);
 #endif

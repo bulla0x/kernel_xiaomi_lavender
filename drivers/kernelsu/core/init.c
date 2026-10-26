@@ -11,6 +11,10 @@
 #include "policy/app_profile.h"
 #include "policy/feature.h"
 #include "klog.h" // IWYU pragma: keep
+
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs.h>
+#endif
 #include "manager/manager_observer.h"
 #include "manager/throne_tracker.h"
 #include "hook/hook_manager.h"
@@ -127,6 +131,10 @@ int __init kernelsu_init(void)
 	if (allow_shell) {
 		pr_alert("shell is allowed at init!");
 	}
+
+#ifdef CONFIG_KSU_SUSFS
+	susfs_init();
+#endif
 
     ksu_cred = prepare_creds();
     if (!ksu_cred) {

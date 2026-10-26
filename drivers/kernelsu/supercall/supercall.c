@@ -19,6 +19,8 @@
 #include "klog.h" // IWYU pragma: keep
 #include "manager/manager_identity.h"
 #include "compat/kernel_compat.h"
+#include "feature/susfs_handler.h"
+#include <linux/susfs.h>
 
 #include "sulog/event.h"
 
@@ -125,6 +127,12 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
 {
 	if (magic1 != KSU_INSTALL_MAGIC1)
 		return 0;
+
+#ifdef CONFIG_KSU_SUSFS
+	if (magic2 == SUSFS_MAGIC) {
+		return susfs_handle_reboot(cmd, (void __user *)*arg);
+	}
+#endif
 
 #ifdef CONFIG_KSU_DEBUG
 	pr_info("sys_reboot: intercepted call! magic: 0x%x id: %d\n", magic1,

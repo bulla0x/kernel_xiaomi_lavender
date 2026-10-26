@@ -43,6 +43,11 @@ kernelsu-objs += supercall/supercall.o
 kernelsu-objs += feature/adb_root.o
 kernelsu-objs += feature/selinux_hide.o
 
+ifeq ($(CONFIG_KSU_SUSFS),y)
+kernelsu-objs += feature/susfs_handler.o
+ccflags-y += -I$(srctree)/fs
+endif
+
 ifdef KBUILD_EXTMOD
 ifeq ($(CONFIG_KSU_DISABLE_MANAGER),y)
 ccflags-y += -DCONFIG_KSU_DISABLE_MANAGER=1
@@ -133,7 +138,7 @@ $(info -- KernelSU-Next version: $(KSU_VERSION))
 else
 # If there is no .git directory, use default version
 $(warning "KSU_GIT_VERSION not defined! It is better to make KernelSU-Next a git repository!")
-KSU_VERSION_FALLBACK := 33316
+KSU_VERSION_FALLBACK := 33355
 $(info -- KernelSU-Next version fallback: $(KSU_VERSION_FALLBACK))
 KSU_VERSION := $(KSU_VERSION_FALLBACK)
 endif
@@ -153,7 +158,7 @@ ifdef KSU_GIT_VERSION_VALID
 $(eval KSU_VERSION_TAG=$(KSU_GIT_TAG))
 else
 $(warning "KSU_VERSION_TAG not defined! It is better to make KernelSU-Next a git submodule!")
-KSU_VERSION_TAG_FALLBACK := v3.4.0-legacy
+KSU_VERSION_TAG_FALLBACK := v3.4.2
 KSU_VERSION_TAG=$(KSU_VERSION_TAG_FALLBACK)
 endif
 
