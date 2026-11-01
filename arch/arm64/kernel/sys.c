@@ -70,3 +70,4 @@ const syscall_fn_t sys_call_table[__NR_syscalls] = {
 	[0 ... __NR_syscalls - 1] = __arm64_sys_ni_syscall,
 #include <asm/unistd.h>
 };
+EXPORT_SYMBOL(sys_call_table);
