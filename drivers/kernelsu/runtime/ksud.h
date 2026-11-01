@@ -35,11 +35,14 @@ struct user_arg_ptr {
 int ksu_handle_execveat_ksud(int *fd, struct filename **filename_ptr,
 			     struct user_arg_ptr *argv,
 			     struct user_arg_ptr *envp, int *flags);
+int ksu_handle_execve_ksud(const char __user *filename_user,
+			   const char __user *const __user *__argv);
 
 void ksu_ksud_init();
 void ksu_ksud_exit();
 
 void ksu_stop_input_hook_runtime(void);
+void ksu_handle_sys_read(unsigned int fd);
 
 extern bool ksu_execveat_hook __read_mostly;
 

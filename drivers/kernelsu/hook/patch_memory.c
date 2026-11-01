@@ -34,6 +34,20 @@
 #include "linux/stop_machine.h"
 #include "asm/cacheflush.h"
 #include "asm-generic/fixmap.h"
+#include <asm/sections.h>
+#include <asm/memory.h>
+
+#ifndef pmd_leaf
+#ifdef pmd_sect
+#define pmd_leaf(pmd) pmd_sect(pmd)
+#endif
+#endif
+
+#ifndef pud_leaf
+#ifdef pud_sect
+#define pud_leaf(pud) pud_sect(pud)
+#endif
+#endif
 
 // https://github.com/fuqiuluo/ovo/blob/f7da411458e87d32438dc14fce5a3313ed0c967e/ovo/mmuhack.c#L21
 
@@ -111,6 +125,12 @@ unsigned long phys_from_virt(unsigned long addr, int *err)
            ((addr & ~PAGE_MASK));
 
 fail:
+#if defined(__aarch64__)
+    if (addr >= (unsigned long)_text && addr < (unsigned long)_end) {
+        *err = 0;
+        return (unsigned long)__pa_symbol(addr);
+    }
+#endif
     *err = -ENOENT;
     return 0;
 }
@@ -394,6 +414,12 @@ unsigned long phys_from_virt(unsigned long addr, int *err)
     return KSU_PTE_TO_PHYS(*pte) + ((addr & ~PAGE_MASK));
 
 fail:
+#if defined(__aarch64__)
+    if (addr >= (unsigned long)_text && addr < (unsigned long)_end) {
+        *err = 0;
+        return (unsigned long)__pa_symbol(addr);
+    }
+#endif
     *err = -ENOENT;
     return 0;
 }

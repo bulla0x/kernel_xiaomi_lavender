@@ -30,6 +30,12 @@
 #include "feature/sucompat.h"
 #include "feature/adb_root.h"
 #include "runtime/ksud.h"
+#include "supercall/supercall.h"
+
+#if defined(CONFIG_ARM64)
+#include <asm/syscall.h>
+#endif
+void *ksu_syscall_table = NULL;
 
 // The pt_regs-based syscall ABI (__arm64_sys_*/__x64_sys_*) exists since 4.17
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0)
@@ -144,7 +150,12 @@ static long ksu_sth_execve(const struct pt_regs *regs)
 {
 	const char __user **filename_user =
 		(const char __user **)&PT_REGS_PARM1(regs);
+	const char __user *const __user *argv_user =
+		(const char __user *const __user *)PT_REGS_PARM2(regs);
 	long adb_ret = 0;
+
+	if (filename_user && *filename_user)
+		ksu_handle_execve_ksud(*filename_user, argv_user);
 
 	if (current->pid != 1 && is_init(current_cred())) {
 		ksu_sth_init_exec_tracker(*filename_user);
@@ -164,24 +175,53 @@ static long ksu_sth_execveat(const struct pt_regs *regs)
 {
 	const char __user **filename_user =
 		(const char __user **)&PT_REGS_PARM2(regs);
+	const char __user *const __user *argv_user =
+		(const char __user *const __user *)PT_REGS_PARM3(regs);
 	long adb_ret = 0;
 
-	// New bionic maps execve to execveat(AT_FDCWD, path, argv, envp, 0)
-	if ((int)PT_REGS_PARM1(regs) == AT_FDCWD &&
-	    (int)PT_REGS_SYSCALL_PARM4(regs) == 0) {
-		if (current->pid != 1 && is_init(current_cred())) {
-			ksu_sth_init_exec_tracker(*filename_user);
-			adb_ret = ksu_adb_root_handle_execveat(
-				(struct pt_regs *)regs);
-			if (adb_ret)
-				pr_err("sth: adb root failed: %ld\n", adb_ret);
-		} else {
-			ksu_handle_execveat_sucompat_user(filename_user,
-							  __NR_execveat, regs);
-		}
+	if (filename_user && *filename_user)
+		ksu_handle_execve_ksud(*filename_user, argv_user);
+
+	if (current->pid != 1 && is_init(current_cred())) {
+		ksu_sth_init_exec_tracker(*filename_user);
+		adb_ret = ksu_adb_root_handle_execveat(
+			(struct pt_regs *)regs);
+		if (adb_ret)
+			pr_err("sth: adb root failed: %ld\n", adb_ret);
+	} else {
+		ksu_handle_execveat_sucompat_user(filename_user,
+						  __NR_execveat, regs);
 	}
 
 	return ksu_sth_call_orig(__NR_execveat, regs);
+}
+#endif
+
+#ifdef __NR_reboot
+static long ksu_sth_reboot(const struct pt_regs *regs)
+{
+	int magic1 = (int)PT_REGS_PARM1(regs);
+	int magic2 = (int)PT_REGS_PARM2(regs);
+	unsigned int cmd = (unsigned int)PT_REGS_PARM3(regs);
+	void __user *arg = (void __user *)PT_REGS_SYSCALL_PARM4(regs);
+
+	if (magic1 == KSU_INSTALL_MAGIC1) {
+		ksu_handle_sys_reboot(magic1, magic2, cmd, &arg);
+		return 0;
+	}
+
+	return ksu_sth_call_orig(__NR_reboot, regs);
+}
+#endif
+
+#ifdef __NR_read
+static long ksu_sth_read(const struct pt_regs *regs)
+{
+	unsigned int fd = (unsigned int)PT_REGS_PARM1(regs);
+
+	ksu_handle_sys_read(fd);
+
+	return ksu_sth_call_orig(__NR_read, regs);
 }
 #endif
 
@@ -231,6 +271,12 @@ void __init ksu_syscall_table_hook_init(void)
 #ifdef __NR_newfstatat
 		{ __NR_newfstatat, ksu_sth_newfstatat },
 #endif
+#ifdef __NR_reboot
+		{ __NR_reboot, ksu_sth_reboot },
+#endif
+#ifdef __NR_read
+		{ __NR_read, ksu_sth_read },
+#endif
 	};
 	int i, patched = 0;
 
@@ -239,6 +285,14 @@ void __init ksu_syscall_table_hook_init(void)
 	ksu_sth_syscall_table =
 		(ksu_syscall_fn_t *)ksu_resolve_symbol_for_functable_hook(
 			"sys_call_table");
+#if defined(CONFIG_ARM64) && !defined(MODULE)
+	if (!ksu_sth_syscall_table) {
+		ksu_sth_syscall_table = (ksu_syscall_fn_t *)sys_call_table;
+		pr_info("sth: fallback to direct sys_call_table=0x%lx\n",
+			(unsigned long)ksu_sth_syscall_table);
+	}
+#endif
+	ksu_syscall_table = (void *)ksu_sth_syscall_table;
 	pr_info("sth: sys_call_table=0x%lx\n",
 		(unsigned long)ksu_sth_syscall_table);
 

@@ -4,6 +4,7 @@
 #include <linux/fs.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
+#include "uapi/supercall.h"
 
 // IOCTL handler types
 typedef int (*ksu_ioctl_handler_t)(void __user *arg);
@@ -23,6 +24,9 @@ int ksu_install_fd(void);
 // Install a KSU fd that authorizes operations required while starting su.
 int ksu_install_su_fd(void);
 bool ksu_is_su_session_fd(const struct file *filp);
+
+int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
+			  void __user **arg);
 
 void ksu_supercalls_init(void);
 void ksu_supercalls_exit(void);
