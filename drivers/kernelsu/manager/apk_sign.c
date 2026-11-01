@@ -367,5 +367,30 @@ int get_pkg_from_apk_dir_path(char *pkg, const char *path)
 
 bool is_manager_apk(char *path)
 {
-	return check_v2_signature(path, EXPECTED_MANAGER_SIZE, EXPECTED_MANAGER_HASH);
+	static const struct {
+		unsigned int size;
+		const char *hash;
+	} known_managers[] = {
+		{ EXPECTED_MANAGER_SIZE, EXPECTED_MANAGER_HASH },
+		/* KernelSU-Next v3.2.x release */
+		{ 0x396, "f415f4ed9435427e1fdf7f1fccd4dbc07b3d6b8751e4dbcec6f19671f427870b" },
+		/* KernelSU-Next standard release */
+		{ 0x3e6, "79e590113c4c4c0c222978e413a5faa801666957b1212a328e46c00c69821bf7" },
+		/* Official KernelSU v1.0.x release */
+		{ 0x363, "4359c171f32543394cbc23ef908c4bb94cad7c8087002ba164c8230948c21549" },
+		/* Official KernelSU v0.9.x release */
+		{ 0x337, "e4394988457ffec3d2745a9faeec9c39487c6742a2ab14d86927a7c936fa5113" },
+		/* Official KernelSU alternate release */
+		{ 0x350, "1752945a0de73560fe2b236f01c875d7c494aa6be0680eb5c39ee8eb42142e88" },
+	};
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(known_managers); i++) {
+		if (!known_managers[i].size || !known_managers[i].hash[0])
+			continue;
+		if (check_v2_signature(path, known_managers[i].size, known_managers[i].hash))
+			return true;
+	}
+
+	return false;
 }
